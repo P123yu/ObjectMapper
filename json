@@ -1,0 +1,8 @@
+{
+  "name": "mohan",
+  "city": "bng",
+  "quiz": {
+    "q1": ["first"],
+    "a1": ["v1", "v2"]
+  }
+}
