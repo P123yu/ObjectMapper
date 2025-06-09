@@ -1,0 +1,11 @@
+{
+  "name": "mohan",
+  "city": "bng",
+  "quiz": {
+    "q1": ["first"],
+    "a1": ["v1", 8]
+  }
+}
+
+
+Here 8 is also considered as string
