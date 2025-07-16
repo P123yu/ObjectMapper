@@ -1,0 +1,173 @@
+✅ 1. Student.java (Entity)
+
+package com.cms.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Student {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String city;
+
+    @Column(columnDefinition = "TEXT")
+    private String flatQuiz;
+
+    @Column(columnDefinition = "TEXT")
+    private String nestedQuiz;
+
+    @Column(columnDefinition = "TEXT")
+    private String singleMapQuiz;
+}
+
+
+✅ 2. StudentDto.java
+
+package com.cms.dto;
+
+import lombok.*;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class StudentDto {
+    private String name;
+    private String city;
+
+    private List<String> flatQuiz;
+    private List<Map<String, List<String>>> nestedQuiz;
+    private Map<String, List<String>> singleMapQuiz;
+}
+
+
+
+✅ 3. StudentRepository.java
+
+package com.cms.repository;
+
+import com.cms.entity.Student;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface StudentRepository extends JpaRepository<Student, Long> {
+}
+
+
+✅ 4. StudentService.java
+
+package com.cms.service;
+
+import com.cms.dto.StudentDto;
+import com.cms.entity.Student;
+import com.cms.repository.StudentRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public StudentDto saveStudent(StudentDto dto) {
+        try {
+            Student student = new Student();
+            student.setName(dto.getName());
+            student.setCity(dto.getCity());
+
+            student.setFlatQuiz(objectMapper.writeValueAsString(dto.getFlatQuiz()));
+            student.setNestedQuiz(objectMapper.writeValueAsString(dto.getNestedQuiz()));
+            student.setSingleMapQuiz(objectMapper.writeValueAsString(dto.getSingleMapQuiz()));
+
+            student = studentRepository.save(student);
+
+            return convertToDto(student);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save student", e);
+        }
+    }
+
+    public StudentDto getStudent(Long id) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        return convertToDto(student);
+    }
+
+    private StudentDto convertToDto(Student student) {
+        try {
+            StudentDto dto = new StudentDto();
+            dto.setName(student.getName());
+            dto.setCity(student.getCity());
+
+            dto.setFlatQuiz(objectMapper.readValue(student.getFlatQuiz(), new TypeReference<List<String>>() {}));
+            dto.setNestedQuiz(objectMapper.readValue(student.getNestedQuiz(), new TypeReference<List<Map<String, List<String>>>>() {}));
+            dto.setSingleMapQuiz(objectMapper.readValue(student.getSingleMapQuiz(), new TypeReference<Map<String, List<String>>>() {}));
+
+            return dto;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to convert student to DTO", e);
+        }
+    }
+}
+
+✅ 5. StudentController.java
+
+package com.cms.controller;
+
+import com.cms.dto.StudentDto;
+import com.cms.service.StudentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/students")
+public class StudentController {
+
+    @Autowired
+    private StudentService studentService;
+
+    @PostMapping
+    public ResponseEntity<StudentDto> createStudent(@RequestBody StudentDto dto) {
+        return ResponseEntity.ok(studentService.saveStudent(dto));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<StudentDto> getStudent(@PathVariable Long id) {
+        return ResponseEntity.ok(studentService.getStudent(id));
+    }
+}
+
+
+✅ Sample JSON for POST Request:
+
+{
+  "name": "mohan",
+  "city": "bng",
+  "flatQuiz": ["v1", "v2"],
+  "nestedQuiz": [
+    { "q1": ["first"] },
+    { "a1": ["v1", "v2"] }
+  ],
+  "singleMapQuiz": {
+    "q1": ["v1"],
+    "q2": ["v2", "v3"]
+  }
+}
