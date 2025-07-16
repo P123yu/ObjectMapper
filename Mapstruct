@@ -1,0 +1,81 @@
+✅ 1. Entity and DTO
+StudentDto
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class StudentDto {
+    private String name;
+    private String city;
+    private List<Map<String, List<String>>> quiz;
+}
+
+// =========================================
+
+Student (Entity)
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+public class Student {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String city;
+
+    @Column(columnDefinition = "TEXT")
+    private String quiz; // Stored as JSON string
+}
+
+
+// ======================================================
+
+
+✅ 2. MapStruct Mapper Interface
+
+import org.mapstruct.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Mapper(componentModel = "spring")
+public interface StudentMapper {
+
+    @Mapping(target = "quiz", source = "quiz", qualifiedByName = "mapQuizToJson")
+    Student toEntity(StudentDto dto);
+
+    @Named("mapQuizToJson")
+    static String mapQuizToJson(List<Map<String, List<String>>> quiz) {
+        try {
+            return new ObjectMapper().writeValueAsString(quiz);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to convert quiz to JSON", e);
+        }
+    }
+}
+
+// ===============================================================================
+
+
+✅ 3. Service Layer Usage
+
+@Service
+public class StudentServiceImpl implements StudentService {
+
+    private final StudentRepository studentRepository;
+    private final StudentMapper studentMapper;
+
+    public StudentServiceImpl(StudentRepository studentRepository, StudentMapper studentMapper) {
+        this.studentRepository = studentRepository;
+        this.studentMapper = studentMapper;
+    }
+
+    @Override
+    public Student createStudent(StudentDto studentDto) {
+        Student student = studentMapper.toEntity(studentDto);
+        return studentRepository.save(student);
+    }
+}
