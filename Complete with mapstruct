@@ -1,0 +1,243 @@
+To support all three quiz structures in your DTO and entity:
+flatQuiz: List<String>
+
+nestedQuiz: List<Map<String, List<String>>>
+
+singleMapQuiz: Map<String, List<String>>
+
+✅ Updated JSON Example:
+
+{
+  "name": "mohan",
+  "city": "bng",
+  "flatQuiz": ["v1", "v2"],
+  "nestedQuiz": [
+    { "q1": ["first"] },
+    { "a1": ["v1", "v2"] }
+  ],
+  "singleMapQuiz": {
+    "q1": ["v1"],
+    "q2": ["v2", "v3"]
+  }
+}
+
+
+✅ 1. Updated StudentDto.java
+
+public class StudentDto {
+    private String name;
+    private String city;
+
+    private List<String> flatQuiz;
+    private List<Map<String, List<String>>> nestedQuiz;
+    private Map<String, List<String>> singleMapQuiz;
+}
+
+
+✅ 2. Updated Student.java (Entity)
+
+@Entity
+public class Student {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String city;
+
+    @Column(columnDefinition = "TEXT")
+    private String flatQuiz;       // JSON of List<String>
+
+    @Column(columnDefinition = "TEXT")
+    private String nestedQuiz;     // JSON of List<Map<String, List<String>>>
+
+    @Column(columnDefinition = "TEXT")
+    private String singleMapQuiz;  // JSON of Map<String, List<String>>
+}
+
+
+✅ 3. Updated StudentMapper.java
+
+@Mapper(componentModel = "spring")
+public interface StudentMapper {
+
+    @Mapping(target = "flatQuiz", source = "flatQuiz", qualifiedByName = "flatToJson")
+    @Mapping(target = "nestedQuiz", source = "nestedQuiz", qualifiedByName = "nestedToJson")
+    @Mapping(target = "singleMapQuiz", source = "singleMapQuiz", qualifiedByName = "mapToJson")
+    Student toEntity(StudentDto dto);
+
+    @Mapping(target = "flatQuiz", source = "flatQuiz", qualifiedByName = "jsonToFlat")
+    @Mapping(target = "nestedQuiz", source = "nestedQuiz", qualifiedByName = "jsonToNested")
+    @Mapping(target = "singleMapQuiz", source = "singleMapQuiz", qualifiedByName = "jsonToMap")
+    StudentDto toDto(Student entity);
+
+    ObjectMapper mapper = new ObjectMapper();
+
+    @Named("flatToJson")
+    static String flatToJson(List<String> list) {
+        try {
+            return mapper.writeValueAsString(list);
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    @Named("nestedToJson")
+    static String nestedToJson(List<Map<String, List<String>>> list) {
+        try {
+            return mapper.writeValueAsString(list);
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    @Named("mapToJson")
+    static String mapToJson(Map<String, List<String>> map) {
+        try {
+            return mapper.writeValueAsString(map);
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    @Named("jsonToFlat")
+    static List<String> jsonToFlat(String json) {
+        try {
+            return mapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    @Named("jsonToNested")
+    static List<Map<String, List<String>>> jsonToNested(String json) {
+        try {
+            return mapper.readValue(json, new TypeReference<List<Map<String, List<String>>>>() {});
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    @Named("jsonToMap")
+    static Map<String, List<String>> jsonToMap(String json) {
+        try {
+            return mapper.readValue(json, new TypeReference<Map<String, List<String>>>() {});
+        } catch (Exception e) {
+            return new HashMap<>();
+        }
+    }
+}
+
+
+✅ 4. Your Service & Controller remain the same
+You can now POST or GET using this JSON:
+
+{
+  "name": "mohan",
+  "city": "bng",
+  "flatQuiz": ["v1", "v2"],
+  "nestedQuiz": [
+    { "q1": ["first"] },
+    { "a1": ["v1", "v2"] }
+  ],
+  "singleMapQuiz": {
+    "q1": ["v1"],
+    "q2": ["v2", "v3"]
+  }
+}
+
+
+
+
+
+================== service and controller 
+
+
+Here is the complete code for the StudentService and StudentController based on your updated requirement — where you store and retrieve:
+
+flatQuiz: List<String>
+
+nestedQuiz: List<Map<String, List<String>>>
+
+singleMapQuiz: Map<String, List<String>>
+
+✅ StudentService.java
+
+package com.cms.service;
+
+import com.cms.dto.StudentDto;
+import com.cms.entity.Student;
+import com.cms.mapper.StudentMapper;
+import com.cms.repository.StudentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentMapper studentMapper;
+
+    public StudentDto getStudent(Long id) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+        return studentMapper.toDto(student);
+    }
+
+    public StudentDto saveStudent(StudentDto studentDto) {
+        Student student = studentMapper.toEntity(studentDto);
+        Student saved = studentRepository.save(student);
+        return studentMapper.toDto(saved);
+    }
+}
+
+
+✅ StudentController.java
+
+package com.cms.controller;
+
+import com.cms.dto.StudentDto;
+import com.cms.service.StudentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/students")
+public class StudentController {
+
+    @Autowired
+    private StudentService studentService;
+
+    @PostMapping
+    public ResponseEntity<StudentDto> createStudent(@RequestBody StudentDto studentDto) {
+        StudentDto saved = studentService.saveStudent(studentDto);
+        return ResponseEntity.ok(saved);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<StudentDto> getStudent(@PathVariable Long id) {
+        return ResponseEntity.ok(studentService.getStudent(id));
+    }
+}
+
+
+✅ Sample Request JSON (for Postman)
+POST /api/students
+
+{
+  "name": "mohan",
+  "city": "bng",
+  "flatQuiz": ["v1", "v2"],
+  "nestedQuiz": [
+    { "q1": ["first"] },
+    { "a1": ["v1", "v2"] }
+  ],
+  "singleMapQuiz": {
+    "q1": ["v1"],
+    "q2": ["v2", "v3"]
+  }
+}
